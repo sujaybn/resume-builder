@@ -1,24 +1,75 @@
-# Logs
-logs
-*.log
+# Ignore Node.js dependencies
+node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
+.pnpm-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Ignore Python virtual environment
+venv/
+.env/
+.venv/
+env/
+ENV/
 
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
+# Ignore Python build artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Ignore IDE-specific files
+.vscode/
+.idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+
+# Ignore environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Ignore Docker-related files
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# Ignore database files
+*.db
+*.sqlite3
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore logs and temporary files
+logs/
+*.log
+*.tmp
+*.temp
+
+# Ignore frontend build artifacts
+dist/
+build/
+out/
+.next/
+.cache/
+
+# Ignore Python package installation directories
+bin/
+lib/
+include/
+pip-selfcheck.json
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore Hugging Face cache
+.cache/
