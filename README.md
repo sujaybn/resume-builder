@@ -106,3 +106,4 @@ A powerful tool that leverages AI to analyze job descriptions and tailor resumes
 
 ## License
 [Insert your preferred license here]
+

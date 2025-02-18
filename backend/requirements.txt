@@ -2,3 +2,7 @@ python-dotenv
 transformers
 torch
 firebase-admin
+fastapi
+pydantic
+uvicorn
+tensorflow

@@ -1,22 +1,33 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
-  content: "",
-  template: "basic",
+  inputContent: "", // Stores user input
+  generatedContent: "", // Stores AI-generated resume content
+  template: "basic", // Default template selection
 };
 
 export const resumeSlice = createSlice({
   name: "resume",
   initialState,
   reducers: {
-    updateContent: (state, action) => {
-      state.content = action.payload;
+    updateInputContent: (state, action) => {
+      state.inputContent = action.payload;
+    },
+    updateGeneratedContent: (state, action) => {
+      state.generatedContent = action.payload;
     },
     updateTemplate: (state, action) => {
       state.template = action.payload;
     },
+    resetResume: (state) => {
+      state.inputContent = "";
+      state.generatedContent = "";
+      state.template = "basic";
+    },
   },
 });
 
-export const { updateContent, updateTemplate } = resumeSlice.actions;
+export const { updateInputContent, updateGeneratedContent, updateTemplate, resetResume } =
+  resumeSlice.actions;
+
 export default resumeSlice.reducer;

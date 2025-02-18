@@ -13,8 +13,8 @@ load_dotenv()
 
 app = FastAPI()
 
-# Load a pre-trained text generation model
-generator = pipeline("text-generation", model="gpt2")
+# Load a better text generation model
+generator = pipeline("text-generation", model="EleutherAI/gpt-neo-1.3B")
 
 # Firebase authentication setup
 firebase_cred_path = os.getenv("FIREBASE_CREDENTIALS", "/app/auth/resume-builder-3a80a-firebase-admin.json")
@@ -26,23 +26,52 @@ if not firebase_admin._apps:
 
 security = HTTPBearer()
 
+# Resume templates
+TEMPLATES = {
+    "basic": {
+        "sections": ["Contact Information", "Summary", "Skills", "Experience", "Education"]
+    },
+    "modern": {
+        "sections": ["Header", "Profile", "Technical Skills", "Professional Experience", "Education"]
+    }
+}
+
 class ResumeRequest(BaseModel):
     content: str
-
-@app.get("/")
-def read_root():
-    return {"message": "Resume Generator API is running!"}
+    template: str = "basic"
 
 @app.post("/generate")
 async def generate_resume(resume: ResumeRequest):
     try:
+        # Get the selected template
+        template = TEMPLATES.get(resume.template, TEMPLATES["basic"])
+
+        # Improve prompt for better AI results
+        prompt = f"""
+        You are a professional resume writer. Generate a well-structured resume using the following details:
+
+        Candidate Information:
+        {resume.content}
+
+        Resume Sections:
+        {", ".join(template["sections"])}
+
+        Ensure the resume is formatted clearly and professionally.
+        """
+
         # Generate text using Hugging Face Transformers
         generated_text = generator(
-            f"Generate a professional resume based on: {resume.content}",
-            max_length=200,  # Adjust max_length as needed
+            prompt,
+            max_length=500,  # Increase max_length for better detail
             num_return_sequences=1,
+            do_sample=True,
+            temperature=0.7,  # Adjust creativity
         )
-        return {"generated_resume": generated_text[0]["generated_text"]}
+
+        # Extract generated text and clean output
+        resume_text = generated_text[0]["generated_text"].replace(prompt, "").strip()
+
+        return {"generated_resume": resume_text}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -51,7 +80,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         token = credentials.credentials
         decoded_token = auth.verify_id_token(token)
         return decoded_token["uid"]
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -65,12 +94,14 @@ async def generate_resume_with_user(
     try:
         generated_text = generator(
             f"Generate a professional resume based on: {resume.content}",
-            max_length=200,
+            max_length=500,
             num_return_sequences=1,
+            do_sample=True,
+            temperature=0.7,
         )
         return {
             "user_id": user_id,
-            "generated_resume": generated_text[0]["generated_text"]
+            "generated_resume": generated_text[0]["generated_text"].strip()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
