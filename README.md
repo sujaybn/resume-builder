@@ -1,109 +1,138 @@
 # Resume Builder
 
-A powerful tool that leverages AI to analyze job descriptions and tailor resumes to match specific roles. This app helps users optimize their resumes for ATS systems and craft personalized resumes that align with the job description.
+A powerful tool that leverages AI to analyze job descriptions and tailor resumes to match specific roles. This application assists users in optimizing their resumes for Applicant Tracking Systems (ATS) and crafting personalized documents that align with specific job requirements.
 
 ## Key Features
 
-### Resume Parsing
-- **Extract information** from existing resumes (PDF, Word, etc.) using NLP.
-- Identify skills, experience, education, and other key sections.
+- **Resume Parsing**: Extracts information from existing resumes (PDF, Word, etc.) using Natural Language Processing (NLP) to identify skills, experience, education, and other key sections.
 
-### Job Description Analysis
-- **Input Job Descriptions** and extract keywords, required skills, and qualifications using NLP.
+- **Job Description Analysis**: Analyzes job descriptions to extract keywords, required skills, and qualifications, aiding in the alignment of resumes with job requirements.
 
-### Resume Tailoring
-- Suggest improvements to the user’s resume based on the job description.
-- **Highlight relevant skills and experiences** to match the job requirements.
+- **Resume Tailoring**: Provides suggestions to enhance the user's resume based on the analyzed job description, emphasizing relevant skills and experiences.
 
-### AI-Powered Content Generation
-- Generate **bullet points or summaries** for work experience.
-- Suggest action verbs and **industry-specific terminology** to enhance the resume.
+- **AI-Powered Content Generation**: Utilizes advanced language models to generate professional summaries, skill descriptions, and experience bullet points.
 
-### ATS (Applicant Tracking System) Optimization
-- Ensure the resume is **formatted and optimized** for ATS systems.
-- Provide a **score** or feedback on how well the resume matches the job description.
+## Prerequisites
 
-### Template Customization
-- Offer **multiple resume templates** (minimalist, professional, creative, etc.).
-- Allow users to **customize fonts, colors, and layouts**.
+Before setting up the project, ensure you have the following installed:
 
-### Export Options
-- Export resumes in **PDF, Word, or plain text formats**.
+- [Python 3.10](https://www.python.org/downloads/)
+- [Node.js](https://nodejs.org/)
+- [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Firebase Account](https://firebase.google.com/) with Admin SDK credentials
 
-### User Accounts
-- Save **multiple resumes** and job descriptions.
-- Track progress and revisions.
+## Project Structure
 
-## Tech Stack
+The repository is organized as follows:
 
-### Frontend
-- **React.js** or **Vue.js** for a dynamic and responsive web app.
-- **Tailwind CSS** or **Material-UI** for styling and components.
+```
+resume-builder/
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── models/
+│   │   ├── routers/
+│   │   └── services/
+│   ├── Dockerfile
+│   └── requirements.txt
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── App.js
+│   └── index.js
+├── public/
+├── .env
+├── docker-compose.yml
+├── package.json
+└── README.md
+```
 
-### Backend
-- **Python** (Flask/Django/FastAPI) for handling API requests and business logic.
-- **Node.js** (Express) if you prefer JavaScript for the backend.
+- **backend/**: Contains the FastAPI backend application.
+- **src/**: Holds the React frontend source code.
+- **public/**: Includes static assets for the frontend.
+- **.env**: Environment variables configuration file.
+- **docker-compose.yml**: Defines services for Docker Compose.
+- **package.json**: Manages frontend dependencies and scripts.
 
-### AI/ML
-- **spaCy** or **NLTK** for NLP tasks (parsing resumes, analyzing job descriptions).
-- **Transformers** (Hugging Face) for advanced text generation and summarization.
-- **scikit-learn** for keyword extraction and matching.
+## Setup Instructions
 
-### Database
-- **PostgreSQL** or **MongoDB** for storing user data, resumes, and job descriptions.
+Follow these steps to set up and run the project:
 
-### Cloud Services
-- **AWS** or **Google Cloud** for hosting and scaling.
-- **Firebase** for authentication and real-time database (if you want a quick setup).
+1. **Clone the Repository**:
 
-### APIs
-- **Resume Parsing API**: Use an existing service like Sovren or build your own.
-- **Job Description Analysis**: Use **OpenAI’s GPT models** for advanced text analysis.
+   ```bash
+   git clone https://github.com/sujaybn/resume-builder.git
+   cd resume-builder
+   ```
 
-### Deployment
-- **Docker** for containerization.
-- **Kubernetes** for orchestration (if scaling is needed).
-- **CI/CD Pipeline**: GitHub Actions or GitLab CI.
+2. **Configure Environment Variables**:
 
-## High-Level Plan
+   - Create a `.env` file in the root directory with the following content:
 
-### 1. Research and Planning
-- Study existing resume builders and identify gaps.
-- Define the **core user flow** (upload resume, input job description, get tailored resume).
+     ```env
+     FIREBASE_CREDENTIALS=/app/auth/firebase-admin.json
+     ```
 
-### 2. Build the Backend
-- Set up the **API** for resume parsing and job description analysis.
-- Implement **AI models** for keyword extraction and content generation.
+   - Place your Firebase Admin SDK JSON file at `backend/app/auth/firebase-admin.json`.
 
-### 3. Develop the Frontend
-- Create a **clean, user-friendly interface** for uploading resumes and viewing suggestions.
-- Add **template customization** and export options.
+3. **Install Backend Dependencies**:
 
-### 4. Integrate AI/ML Models
-- Train or fine-tune models for **resume parsing** and job description analysis.
-- Use pre-trained models (like GPT) for **content generation**.
+   - Navigate to the backend directory:
 
-### 5. Testing
-- Test the app with **real resumes** and job descriptions.
-- Optimize for **ATS compatibility**.
+     ```bash
+     cd backend
+     ```
 
-### 6. Deploy and Launch
-- **Deploy** the app to a cloud platform.
-- Gather **user feedback** and iterate.
+   - Install Python dependencies:
 
-## Example Workflow
+     ```bash
+     pip install -r requirements.txt
+     ```
 
-1. **User Uploads Resume**: The app parses the resume and extracts skills, experience, and education.
-2. **User Inputs Job Description**: The app analyzes the job description and identifies key requirements.
-3. **AI Suggests Improvements**: The app highlights missing keywords, suggests better phrasing, and optimizes the resume for ATS.
-4. **User Customizes and Exports**: The user selects a template, makes edits, and exports the resume.
+4. **Install Frontend Dependencies**:
 
-## Stretch Goals
-- **Multi-Language Support**: Allow users to create resumes in multiple languages.
-- **LinkedIn Integration**: Pull data directly from **LinkedIn profiles**.
-- **Cover Letter Generator**: Use AI to generate tailored cover letters.
-- **Interview Prep**: Provide common **interview questions** based on the job description.
+   - Navigate to the frontend source directory:
+
+     ```bash
+     cd ../
+     ```
+
+   - Install Node.js dependencies:
+
+     ```bash
+     npm install
+     ```
+
+5. **Run the Application Using Docker Compose**:
+
+   - Ensure you're in the root directory of the project.
+   - Start the services:
+
+     ```bash
+     docker-compose up --build
+     ```
+
+   - This command will build and start both the backend and frontend services.
+
+6. **Access the Application**:
+
+   - Frontend: Open your browser and navigate to `http://localhost:3000/`.
+   - Backend: The API is accessible at `http://localhost:8000/`.
+
+## Usage
+
+- **Frontend**: Use the web interface to input your existing resume and the job description. The application will analyze and provide a tailored resume.
+- **Backend**: Provides API endpoints for resume parsing, job description analysis, and resume generation.
+
+## Contributing
+
+Contributions are welcome! If you'd like to contribute, please fork the repository, create a new branch, and submit a pull request. Ensure that your code adheres to the project's coding standards and includes appropriate tests.
 
 ## License
-[Insert your preferred license here]
 
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
+
+## Acknowledgments
+
+Special thanks to the open-source community and the contributors of the libraries and frameworks used in this project.
