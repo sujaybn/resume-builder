@@ -3,18 +3,13 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8000:8000"  # Ensures FastAPI is accessible on the correct port
-
+      - "8000:8000"  # Map host port 8000 to container port 8000
     environment:
-      - OPENAI_API_KEY=your_openai_key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DATABASE_URL=postgresql://user:password@db/resume_builder
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/auth/firebase-admin.json  # Path inside container
-
-    volumes:
-      - ./backend/auth/resume-builder-3a80a-firebase-admin.json:/app/auth/firebase-admin.json  # Corrected mount path
-
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:13
@@ -26,6 +21,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d resume_builder"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
