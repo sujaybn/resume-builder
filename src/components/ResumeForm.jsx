@@ -7,65 +7,74 @@ const ResumeForm = () => {
   const inputContent = useSelector((state) => state.resume.inputContent);
   const generatedContent = useSelector((state) => state.resume.generatedContent);
   const template = useSelector((state) => state.resume.template);
-  
+
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
+  const [fileError, setFileError] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    setFileError("");
+
+    if (!file) return;
+
+    if (file.size > 1024 * 1024) {
+      setFileError("File size too large (max 1MB)");
+      return;
+    }
+
+    setJobDescription(file);
+  };
 
   const handleGenerate = async () => {
     setIsLoading(true);
+    setFileError("");
+
+    const formData = new FormData();
+    formData.append("content", inputContent);
+    formData.append("template", template);
+    formData.append("job_description", typeof jobDescription === "string" ? jobDescription : "");
+
+    if (jobDescription instanceof File) {
+      formData.append("job_description_file", jobDescription);
+    }
+
     try {
       const response = await axios.post(
         `${import.meta.env.VITE_API_URL}/generate`,
-        { content: inputContent, template },
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        formData,
+        { headers: { "Content-Type": "multipart/form-data" } }
       );
+
       dispatch(updateGeneratedContent(response.data.generated_resume));
     } catch (error) {
-      console.error("Error generating resume:", error);
+      setFileError(error.response?.data?.detail || "Failed to generate resume.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-semibold mb-4">Resume Content</h2>
+    <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg">
+      <h2 className="text-2xl font-bold mb-4">Resume Builder</h2>
+      
       <textarea
-        className="w-full p-2 border rounded mb-4"
-        value={inputContent} // Keeps user input separate
+        className="w-full p-3 border border-gray-300 rounded-lg"
+        rows="6"
+        placeholder="Enter your resume details..."
+        value={inputContent}
         onChange={(e) => dispatch(updateInputContent(e.target.value))}
-        placeholder="Enter your resume content..."
-        rows={10}
       />
-      <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">Select Template:</label>
-        <select
-          className="w-full p-2 border rounded"
-          value={template}
-          onChange={(e) => dispatch(updateTemplate(e.target.value))}
-        >
-          <option value="basic">Basic</option>
-          <option value="modern">Modern</option>
-        </select>
-      </div>
-      <button
-        className="bg-blue-600 text-white px-4 py-2 rounded"
-        onClick={handleGenerate}
-        disabled={isLoading}
-      >
+
+      <input type="file" accept=".txt,.pdf" onChange={handleFileUpload} className="mt-2 p-2 border w-full" />
+      {fileError && <p className="text-red-500 text-sm mt-1">{fileError}</p>}
+
+      <button onClick={handleGenerate} disabled={isLoading} className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg">
         {isLoading ? "Generating..." : "Generate Resume"}
       </button>
 
-      {generatedContent && (
-        <div className="mt-4 bg-gray-100 p-4 rounded">
-          <h3 className="text-lg font-semibold">Generated Resume:</h3>
-          <pre className="whitespace-pre-wrap">{generatedContent}</pre>
-        </div>
-      )}
+      {generatedContent && <pre className="mt-6 p-4 border bg-gray-50">{generatedContent}</pre>}
     </div>
   );
 };

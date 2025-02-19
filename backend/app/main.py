@@ -1,122 +1,103 @@
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import firebase_admin
-from firebase_admin import credentials, auth
-from dotenv import load_dotenv
-import os
-from starlette import status
+import pdfplumber
+import logging
 from transformers import pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Load environment variables
-load_dotenv()
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Enable CORS to allow frontend requests
+# Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Change this to your frontend URL if needed
+    allow_origins=["http://localhost:5173"],  
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Use a smaller text generation model for performance
-generator = pipeline("text-generation", model="EleutherAI/gpt-neo-125M")  # Faster and lighter model
+# Load text generation model
+try:
+    generator = pipeline("text-generation", model="EleutherAI/gpt-neo-125M")
+except Exception as e:
+    logger.error(f"Failed to initialize text generator: {str(e)}")
+    raise RuntimeError("Text generation service unavailable")
 
-# Firebase authentication setup
-firebase_cred_path = os.getenv("FIREBASE_CREDENTIALS", "/app/auth/resume-builder-3a80a-firebase-admin.json")
-
-# Check if Firebase credentials exist before initializing
-if not os.path.exists(firebase_cred_path):
-    raise RuntimeError(f"Firebase credentials file not found: {firebase_cred_path}")
-
-# Initialize Firebase only if not already initialized
-if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_cred_path)
-    firebase_admin.initialize_app(cred)
-
-security = HTTPBearer()
-
-# Resume templates
 TEMPLATES = {
-    "basic": {
-        "sections": ["Contact Information", "Summary", "Skills", "Experience", "Education"]
-    },
-    "modern": {
-        "sections": ["Header", "Profile", "Technical Skills", "Professional Experience", "Education"]
-    }
+    "basic": ["Contact Information", "Summary", "Skills", "Experience", "Education"],
+    "modern": ["Header", "Profile", "Technical Skills", "Professional Experience", "Education"]
 }
 
-class ResumeRequest(BaseModel):
-    content: str
-    template: str = "basic"
+def extract_text_from_pdf(file: UploadFile) -> str:
+    """Extract text from uploaded PDF file."""
+    try:
+        with pdfplumber.open(file.file) as pdf:
+            return "\n".join(page.extract_text() or "" for page in pdf.pages)
+    except Exception as e:
+        logger.error(f"PDF extraction failed: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid PDF file")
 
+def calculate_similarity(resume: str, job_desc: str) -> float:
+    """Calculate similarity score between resume and job description."""
+    try:
+        vectorizer = TfidfVectorizer()
+        vectors = vectorizer.fit_transform([resume, job_desc])
+        return cosine_similarity(vectors[0], vectors[1])[0][0]
+    except ValueError as e:
+        logger.error(f"Similarity calculation error: {str(e)}")
+        return 0.0  
 
 @app.post("/generate")
-async def generate_resume(resume: ResumeRequest):
+async def generate_resume(
+    content: str = Form(...),
+    template: str = Form("basic"),
+    job_description: str = Form(""),
+    job_description_file: UploadFile = File(None)
+):
+    """Generate a resume based on user input and job description."""
     try:
+        if job_description_file:
+            if job_description_file.content_type == "application/pdf":
+                job_description = extract_text_from_pdf(job_description_file)
+            else:
+                job_description = (await job_description_file.read()).decode("utf-8")
+
+        if not content.strip():
+            raise HTTPException(status_code=400, detail="Resume content is required")
+
+        if not job_description.strip():
+            raise HTTPException(status_code=400, detail="Job description is required")
+
+        similarity_score = calculate_similarity(content, job_description)
+
         prompt = f"""
         Generate a professional resume based on the following information:
-        {resume.content}
+        {content}
 
-        Include the following sections:
-        1. Contact Information
-        2. Summary
-        3. Skills
-        4. Experience
-        5. Education
+        Include the following sections: {", ".join(TEMPLATES.get(template, TEMPLATES["basic"]))}
 
         Format the resume in plain text with clear section headings.
-        Each section should be concise and relevant to the input provided.
+        Incorporate keywords from this job description: {job_description}
         """
 
-        generated_text = generator(
-            prompt,
-            max_length=500,  # Adjust max_length as needed
-            num_return_sequences=1,
-            temperature=0.7,
-            top_p=0.9,
-            do_sample=True,
-        )
+        # ✅ Fix: Use max_new_tokens to specify only the generated part
+        generated_text = generator(prompt, max_new_tokens=200, temperature=0.7, top_p=0.9, do_sample=True)
 
         resume_text = generated_text[0]["generated_text"].strip()
-
-        return {"generated_resume": resume_text}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    try:
-        token = credentials.credentials
-        decoded_token = auth.verify_id_token(token)
-        return decoded_token["uid"]
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-        )
-
-
-@app.post("/generate_with_auth")
-async def generate_resume_with_user(
-    resume: ResumeRequest,
-    user_id: str = Depends(get_current_user),
-):
-    try:
-        generated_text = generator(
-            f"Generate a professional resume based on: {resume.content}",
-            max_length=500,
-            num_return_sequences=1,
-            do_sample=True,
-            temperature=0.7,
-        )
+        
         return {
-            "user_id": user_id,
-            "generated_resume": generated_text[0]["generated_text"].strip()
+            "generated_resume": f"{resume_text}\n\nJob Match Score: {similarity_score:.2%}"
         }
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Resume generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Resume generation failed.")
+

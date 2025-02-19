@@ -1,8 +1,13 @@
-python-dotenv
-transformers
-torch
-firebase-admin
-fastapi
 pydantic
-uvicorn
 tensorflow
+fastapi>=0.68.0
+uvicorn>=0.15.0
+python-dotenv>=0.19.0
+transformers>=4.30.0
+torch>=2.0.0
+scikit-learn>=1.2.2  # Add this line
+numpy>=1.24.3        # Required for scikit-learn
+scipy>=1.10.1        # Required for scikit-learn
+firebase-admin>=6.2.0
+pdfplumber>=0.10.0  # Add this line
+python-multipart
