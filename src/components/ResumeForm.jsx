@@ -11,7 +11,9 @@ const ResumeForm = () => {
   const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [fileError, setFileError] = useState("");
-  const [jobDescription, setJobDescription] = useState("");
+  const [jobDescription, setJobDescription] = useState(null);
+  const [originalMatchScore, setOriginalMatchScore] = useState(null);
+  const [improvedMatchScore, setImprovedMatchScore] = useState(null);
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -32,12 +34,13 @@ const ResumeForm = () => {
     setFileError("");
 
     const formData = new FormData();
-    formData.append("content", inputContent);
+    formData.append("resume_content", inputContent);
     formData.append("template", template);
-    formData.append("job_description", typeof jobDescription === "string" ? jobDescription : "");
 
     if (jobDescription instanceof File) {
       formData.append("job_description_file", jobDescription);
+    } else if (typeof jobDescription === "string") {
+      formData.append("job_description_text", jobDescription);
     }
 
     try {
@@ -47,7 +50,9 @@ const ResumeForm = () => {
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      dispatch(updateGeneratedContent(response.data.generated_resume));
+      dispatch(updateGeneratedContent(response.data.refined_resume));
+      setOriginalMatchScore(response.data.original_match_score);
+      setImprovedMatchScore(response.data.improved_match_score);
     } catch (error) {
       setFileError(error.response?.data?.detail || "Failed to generate resume.");
     } finally {
@@ -57,12 +62,12 @@ const ResumeForm = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white shadow-md rounded-lg">
-      <h2 className="text-2xl font-bold mb-4">Resume Builder</h2>
+      <h2 className="text-2xl font-bold mb-4">Resume Optimizer</h2>
       
       <textarea
         className="w-full p-3 border border-gray-300 rounded-lg"
         rows="6"
-        placeholder="Enter your resume details..."
+        placeholder="Paste your resume here..."
         value={inputContent}
         onChange={(e) => dispatch(updateInputContent(e.target.value))}
       />
@@ -70,11 +75,24 @@ const ResumeForm = () => {
       <input type="file" accept=".txt,.pdf" onChange={handleFileUpload} className="mt-2 p-2 border w-full" />
       {fileError && <p className="text-red-500 text-sm mt-1">{fileError}</p>}
 
-      <button onClick={handleGenerate} disabled={isLoading} className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg">
-        {isLoading ? "Generating..." : "Generate Resume"}
+      <button 
+        onClick={handleGenerate} 
+        disabled={isLoading} 
+        className="mt-4 w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg"
+      >
+        {isLoading ? "Generating..." : "Generate Tailored Resume"}
       </button>
 
-      {generatedContent && <pre className="mt-6 p-4 border bg-gray-50">{generatedContent}</pre>}
+      {generatedContent && (
+        <div className="mt-6 p-4 border bg-gray-50">
+          <h3 className="text-lg font-semibold">Tailored Resume:</h3>
+          <pre className="whitespace-pre-wrap">{generatedContent}</pre>
+
+          <h3 className="text-lg font-semibold mt-4">Match Scores:</h3>
+          <p>Before Optimization: <strong>{(originalMatchScore * 100).toFixed(2)}%</strong></p>
+          <p>After Optimization: <strong>{(improvedMatchScore * 100).toFixed(2)}%</strong></p>
+        </div>
+      )}
     </div>
   );
 };

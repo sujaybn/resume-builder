@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 import pdfplumber
 import logging
 from transformers import pipeline
@@ -22,20 +21,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load text generation model
+# Load a more reliable text generation model (OpenAI API recommended)
 try:
-    generator = pipeline("text-generation", model="EleutherAI/gpt-neo-125M")
+    generator = pipeline("text2text-generation",  model="tiiuae/falcon-7b-instruct")
 except Exception as e:
     logger.error(f"Failed to initialize text generator: {str(e)}")
     raise RuntimeError("Text generation service unavailable")
 
-TEMPLATES = {
-    "basic": ["Contact Information", "Summary", "Skills", "Experience", "Education"],
-    "modern": ["Header", "Profile", "Technical Skills", "Professional Experience", "Education"]
-}
+# Max input length to prevent crashes
+MAX_LENGTH = 3000
 
 def extract_text_from_pdf(file: UploadFile) -> str:
-    """Extract text from uploaded PDF file."""
+    """Extract text from an uploaded PDF file."""
     try:
         with pdfplumber.open(file.file) as pdf:
             return "\n".join(page.extract_text() or "" for page in pdf.pages)
@@ -46,58 +43,90 @@ def extract_text_from_pdf(file: UploadFile) -> str:
 def calculate_similarity(resume: str, job_desc: str) -> float:
     """Calculate similarity score between resume and job description."""
     try:
+        if not resume.strip() or not job_desc.strip():
+            return 0.0  # Avoid errors if input is empty
+
         vectorizer = TfidfVectorizer()
         vectors = vectorizer.fit_transform([resume, job_desc])
+
         return cosine_similarity(vectors[0], vectors[1])[0][0]
     except ValueError as e:
         logger.error(f"Similarity calculation error: {str(e)}")
         return 0.0  
 
+def refine_resume(resume_text: str, job_desc: str) -> str:
+    """Enhance the resume by incorporating keywords while maintaining structure."""
+    prompt = f"""
+    Improve this resume to match the job description.
+    Add relevant keywords, skills, and responsibilities while keeping the structure the same.
+
+    Resume:
+    {resume_text}
+
+    Job Description:
+    {job_desc}
+
+    Return only the improved resume, without explanations.
+    """
+
+    try:
+        generated_text = generator(
+            prompt, 
+            max_length=500, 
+            num_return_sequences=1
+        )
+
+        refined_text = generated_text[0]["generated_text"].strip()
+
+        if len(refined_text) < 100:  # Ensure valid output
+            raise ValueError("AI returned insufficient text.")
+
+        return refined_text
+
+    except Exception as e:
+        logger.error(f"AI model error: {str(e)}")
+        raise HTTPException(status_code=500, detail="AI model failed to generate resume.")
+
 @app.post("/generate")
 async def generate_resume(
-    content: str = Form(...),
-    template: str = Form("basic"),
-    job_description: str = Form(""),
-    job_description_file: UploadFile = File(None)
+    resume_content: str = Form(...),
+    job_description_file: UploadFile = File(...)
 ):
-    """Generate a resume based on user input and job description."""
+    """Refine an existing resume based on a job description."""
     try:
-        if job_description_file:
-            if job_description_file.content_type == "application/pdf":
-                job_description = extract_text_from_pdf(job_description_file)
-            else:
-                job_description = (await job_description_file.read()).decode("utf-8")
+        # Extract job description text
+        if job_description_file.content_type == "application/pdf":
+            job_desc = extract_text_from_pdf(job_description_file)
+        else:
+            job_desc = (await job_description_file.read()).decode("utf-8")
 
-        if not content.strip():
+        if not resume_content.strip():
             raise HTTPException(status_code=400, detail="Resume content is required")
 
-        if not job_description.strip():
+        if not job_desc.strip():
             raise HTTPException(status_code=400, detail="Job description is required")
 
-        similarity_score = calculate_similarity(content, job_description)
+        # Validate input length
+        if len(resume_content) > MAX_LENGTH or len(job_desc) > MAX_LENGTH:
+            raise HTTPException(status_code=400, detail="Input too long. Please shorten resume or job description.")
 
-        prompt = f"""
-        Generate a professional resume based on the following information:
-        {content}
+        # Calculate similarity before improvement
+        match_score_before = calculate_similarity(resume_content, job_desc)
 
-        Include the following sections: {", ".join(TEMPLATES.get(template, TEMPLATES["basic"]))}
+        # Refine resume
+        improved_resume = refine_resume(resume_content, job_desc)
 
-        Format the resume in plain text with clear section headings.
-        Incorporate keywords from this job description: {job_description}
-        """
+        # Calculate similarity after improvement
+        match_score_after = calculate_similarity(improved_resume, job_desc)
 
-        # ✅ Fix: Use max_new_tokens to specify only the generated part
-        generated_text = generator(prompt, max_new_tokens=200, temperature=0.7, top_p=0.9, do_sample=True)
-
-        resume_text = generated_text[0]["generated_text"].strip()
-        
         return {
-            "generated_resume": f"{resume_text}\n\nJob Match Score: {similarity_score:.2%}"
+            "original_match_score": f"{match_score_before:.2%}",
+            "improved_match_score": f"{match_score_after:.2%}",
+            "refined_resume": improved_resume
         }
 
     except HTTPException as he:
         raise he
     except Exception as e:
-        logger.error(f"Resume generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail="Resume generation failed.")
-
+        logger.error(f"Resume refinement failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Resume refinement failed.")
